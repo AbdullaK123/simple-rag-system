@@ -10,7 +10,8 @@ class RedisSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="REDIS_",
         case_sensitive=False,
-        env_file_encoding="utf-8"
+        env_file_encoding="utf-8", 
+        extra="ignore"
     )
     
     # Basic Connection

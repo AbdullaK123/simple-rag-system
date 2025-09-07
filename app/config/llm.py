@@ -10,11 +10,12 @@ class LLMSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="",
         case_sensitive=False,
-        env_file_encoding="utf-8"
+        env_file_encoding="utf-8",
+        extra="ignore"
     )
     
     # OpenAI Configuration
-    openai_api_key: SecretStr = Field(description="OpenAI API key")
+    openai_api_key: SecretStr = Field(default="", description="OpenAI API key")
     openai_org_id: Optional[str] = Field(default=None, description="OpenAI organization ID")
     
     # Model Selection

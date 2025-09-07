@@ -1,6 +1,6 @@
-from typing import List, Literal
+from typing import List, Literal, Union
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,7 +10,8 @@ class EnvironmentSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="",
         case_sensitive=False,
-        env_file_encoding="utf-8"
+        env_file_encoding="utf-8",
+        extra="ignore"
     )
     
     # Environment
@@ -41,6 +42,21 @@ class EnvironmentSettings(BaseSettings):
     run_startup_tests: bool = Field(default=False, description="Run tests on startup")
     mock_external_apis: bool = Field(default=False, description="Mock external API calls")
     test_data_dir: str = Field(default="./tests/data", description="Test data directory")
+    
+    @field_validator('allowed_origins', mode='before')
+    @classmethod
+    def parse_allowed_origins(cls, v):
+        """Parse allowed origins from various formats."""
+        if isinstance(v, str):
+            # Handle single asterisk
+            if v.strip() == '*':
+                return ['*']
+            # Handle comma-separated values
+            if ',' in v:
+                return [origin.strip() for origin in v.split(',')]
+            # Handle single value
+            return [v.strip()]
+        return v
     
     @property
     def is_development(self) -> bool:

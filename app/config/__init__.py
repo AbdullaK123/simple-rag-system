@@ -20,49 +20,62 @@ def get_env_files() -> List[str]:
     env_dir = base_path / ".env"
     
     # Base files (loaded first)
-    env_files = [
-        env_dir / ".core.env",
-        env_dir / ".llm.env", 
-        env_dir / ".storage.env",
-        env_dir / ".logging.env",
-        env_dir / ".security.env",
-        env_dir / ".evaluation.env"
+    base_files = [
+        ".core.env",
+        ".llm.env", 
+        ".storage.env",
+        ".logging.env",
+        ".security.env",
+        ".evaluation.env"
     ]
     
-    # Environment-specific overrides (loaded last, highest precedence)
+    env_files = []
+    
+    # Add base files that exist
+    for file in base_files:
+        file_path = env_dir / file
+        if file_path.exists():
+            env_files.append(str(file_path))
+    
+    # Environment-specific overrides
     environment = os.getenv("ENVIRONMENT", "development")
-    env_files.append(env_dir / f".{environment}.env")
+    env_specific_files = [
+        f".{environment}.env",
+        ".dev.env" if environment == "development" else None,
+        ".prod.env" if environment == "production" else None,
+    ]
+    
+    for file in env_specific_files:
+        if file:
+            file_path = env_dir / file
+            if file_path.exists():
+                env_files.append(str(file_path))
     
     # Local overrides (loaded last)
-    if (env_dir / ".local.env").exists():
-        env_files.append(env_dir / ".local.env")
+    local_env = env_dir / ".local.env"
+    if local_env.exists():
+        env_files.append(str(local_env))
     
-    # Return only files that exist
-    return [str(f) for f in env_files if f.exists()]
+    return env_files
 
 
-class Settings(BaseSettings):
+class Settings:
     """Master settings class that composes all configuration sections."""
     
-    model_config = SettingsConfigDict(
-        env_file=get_env_files(),
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore"
-    )
-    
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self):
+        """Initialize all configuration sections."""
+        # Load environment files first
+        env_files = get_env_files()
         
-        # Initialize all configuration sections
-        self.environment = EnvironmentSettings()
-        self.auth = AuthSettings()
-        self.documents = DocumentSettings()
-        self.embeddings = EmbeddingSettings()
-        self.vectors = VectorSettings()
-        self.llm = LLMSettings()
-        self.redis = RedisSettings()
-        self.logging = LoggingSettings()
+        # Initialize each settings class with the same env files
+        self.environment = EnvironmentSettings(_env_file=env_files)
+        self.auth = AuthSettings(_env_file=env_files)
+        self.documents = DocumentSettings(_env_file=env_files)
+        self.embeddings = EmbeddingSettings(_env_file=env_files)
+        self.vectors = VectorSettings(_env_file=env_files)
+        self.llm = LLMSettings(_env_file=env_files)
+        self.redis = RedisSettings(_env_file=env_files)
+        self.logging = LoggingSettings(_env_file=env_files)
     
     def model_dump_config(self) -> dict:
         """Export all configuration sections as a dictionary."""
@@ -85,7 +98,7 @@ class Settings(BaseSettings):
         """Validate the entire configuration setup."""
         try:
             # Check required API keys
-            if not self.llm.openai_api_key:
+            if not self.llm.openai_api_key or not self.llm.openai_api_key.get_secret_value():
                 raise ValueError("OpenAI API key is required")
             
             # Validate JWT secret in production
