@@ -1,7 +1,7 @@
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 from pydantic import ValidationError
@@ -16,45 +16,163 @@ from app.config import (
     RedisSettings,
     Settings,
     VectorSettings,
-    get_env_files,
+    EnvFileManager,
+    SettingsValidator,
 )
 
 
-@pytest.mark.config
-class TestEnvFileLoading:
-    """Test .env file loading logic."""
+
+class TestEnvFileManager:
+    """Test environment file management logic."""
     
-    def test_get_env_files_development(self):
-        """Test env file loading in development mode."""
-        with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
-            env_files = get_env_files()
-            
-        # Should include development-specific file
-        assert any(".dev.env" in f for f in env_files)
+    def setup_method(self):
+        """Setup test environment."""
+        self.temp_dir = Path(tempfile.mkdtemp())
+        self.env_dir = self.temp_dir / ".env"
+        self.env_dir.mkdir()
+        
+        # Create some test env files
+        (self.env_dir / ".core.env").touch()
+        (self.env_dir / ".llm.env").touch()
+        (self.env_dir / ".dev.env").touch()
+        
+        self.manager = EnvFileManager(self.temp_dir)
+    
+    def teardown_method(self):
+        """Cleanup test environment."""
+        import shutil
+        shutil.rmtree(self.temp_dir)
+    
+    def test_get_base_files(self):
+        """Test base file discovery."""
+        files = self.manager.get_base_files()
+        
+        # Should find existing files
+        assert any(".core.env" in f for f in files)
+        assert any(".llm.env" in f for f in files)
+        
+        # Should not include non-existent files
+        assert not any(".nonexistent.env" in f for f in files)
+    
+    def test_get_environment_files_development(self):
+        """Test development environment file discovery."""
+        files = self.manager.get_environment_files("development")
+        
+        # Should include .dev.env
+        assert any(".dev.env" in f for f in files)
+    
+    def test_get_environment_files_production(self):
+        """Test production environment file discovery."""
+        # Create production file
+        (self.env_dir / ".production.env").touch()
+        
+        files = self.manager.get_environment_files("production")
+        
+        # Should include .production.env
+        assert any(".production.env" in f for f in files)
+    
+    def test_get_local_overrides(self):
+        """Test local override file discovery."""
+        # Create local override file
+        (self.env_dir / ".local.env").touch()
+        
+        files = self.manager.get_local_overrides()
+        
+        assert any(".local.env" in f for f in files)
+    
+    def test_get_all_env_files(self):
+        """Test complete environment file discovery."""
+        # Create additional files
+        (self.env_dir / ".local.env").touch()
+        
+        files = self.manager.get_all_env_files("development")
         
         # Should include base files
-        assert any(".core.env" in f for f in env_files)
-        assert any(".llm.env" in f for f in env_files)
-    
-    def test_get_env_files_production(self):
-        """Test env file loading in production mode."""
-        with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
-            env_files = get_env_files()
-            
-        # Should include production-specific file
-        assert any(".production.env" in f for f in env_files)
-    
-    def test_get_env_files_only_existing(self):
-        """Test that only existing files are returned."""
-        env_files = get_env_files()
+        assert any(".core.env" in f for f in files)
+        assert any(".llm.env" in f for f in files)
         
-        # All returned files should exist
-        for file_path in env_files:
-            assert Path(file_path).exists(), f"File {file_path} should exist"
+        # Should include environment-specific files
+        assert any(".dev.env" in f for f in files)
+        
+        # Should include local overrides
+        assert any(".local.env" in f for f in files)
 
 
-@pytest.mark.config
-@pytest.mark.unit
+class TestSettingsValidator:
+    """Test configuration validation logic."""
+    
+    def setup_method(self):
+        """Setup test validator."""
+        # Create mock settings
+        self.mock_settings = MagicMock()
+        self.mock_settings.environment.is_development = True
+        self.mock_settings.environment.is_production = False
+        self.validator = SettingsValidator(self.mock_settings)
+    
+    def test_validate_api_keys_success(self):
+        """Test successful API key validation."""
+        # Mock valid API key
+        self.mock_settings.llm.openai_api_key.get_secret_value.return_value = "valid-key"
+        
+        # Should not raise
+        self.validator.validate_api_keys()
+    
+    def test_validate_api_keys_empty(self):
+        """Test API key validation with empty key."""
+        # Mock empty API key
+        self.mock_settings.llm.openai_api_key.get_secret_value.return_value = ""
+        
+        # Should raise ValueError
+        with pytest.raises(ValueError, match="OpenAI API key is required"):
+            self.validator.validate_api_keys()
+    
+    def test_validate_api_keys_whitespace(self):
+        """Test API key validation with whitespace-only key."""
+        # Mock whitespace-only API key
+        self.mock_settings.llm.openai_api_key.get_secret_value.return_value = "   "
+        
+        # Should raise ValueError
+        with pytest.raises(ValueError, match="OpenAI API key is required"):
+            self.validator.validate_api_keys()
+    
+    def test_validate_production_security_dev_env(self):
+        """Test production security validation in development."""
+        # Should pass in development regardless of JWT secret
+        self.mock_settings.auth.jwt_secret_key.get_secret_value.return_value = "your_jwt_secret_here"
+        
+        # Should not raise
+        self.validator.validate_production_security()
+    
+    def test_validate_production_security_prod_env(self):
+        """Test production security validation in production."""
+        self.mock_settings.environment.is_production = True
+        self.mock_settings.environment.is_development = False
+        
+        # Mock insecure JWT secret
+        self.mock_settings.auth.jwt_secret_key.get_secret_value.return_value = "your_jwt_secret_here"
+        
+        # Should raise ValueError
+        with pytest.raises(ValueError, match="JWT secret key must be changed"):
+            self.validator.validate_production_security()
+    
+    def test_validate_model_compatibility_success(self):
+        """Test successful model compatibility validation."""
+        self.mock_settings.embeddings.current_model_dimensions = 1536
+        
+        # Should not raise
+        self.validator.validate_model_compatibility()
+    
+    def test_validate_model_compatibility_failure(self):
+        """Test model compatibility validation failure."""
+        self.mock_settings.embeddings.current_model_dimensions = -1
+        
+        # Should raise ValueError
+        with pytest.raises(ValueError, match="Invalid embedding dimensions"):
+            self.validator.validate_model_compatibility()
+
+
+
+
 class TestEnvironmentSettings:
     """Test environment configuration."""
     
@@ -90,12 +208,12 @@ class TestEnvironmentSettings:
         config = settings.server_config
         assert config["host"] == "127.0.0.1"
         assert config["port"] == 9000
-        assert config["reload"] is True  # Should be True in development
+        assert config["reload"] is True
         assert config["debug"] is True
 
 
-@pytest.mark.config
-@pytest.mark.unit
+
+
 class TestDocumentSettings:
     """Test document configuration."""
     
@@ -132,8 +250,8 @@ class TestDocumentSettings:
             assert upload_path.exists()
 
 
-@pytest.mark.config
-@pytest.mark.unit
+
+
 class TestLLMSettings:
     """Test LLM configuration."""
     
@@ -168,8 +286,8 @@ class TestLLMSettings:
         assert "max_tokens" in params
 
 
-@pytest.mark.config
-@pytest.mark.unit
+
+
 class TestEmbeddingSettings:
     """Test embedding configuration."""
     
@@ -204,8 +322,8 @@ class TestEmbeddingSettings:
         assert settings.current_model_dimensions == 1536
 
 
-@pytest.mark.config
-@pytest.mark.unit
+
+
 class TestVectorSettings:
     """Test vector database configuration."""
     
@@ -243,8 +361,8 @@ class TestVectorSettings:
             )
 
 
-@pytest.mark.config
-@pytest.mark.unit
+
+
 class TestRedisSettings:
     """Test Redis configuration."""
     
@@ -287,8 +405,8 @@ class TestRedisSettings:
         assert kwargs["max_connections"] == 100
 
 
-@pytest.mark.config
-@pytest.mark.unit
+
+
 class TestAuthSettings:
     """Test authentication configuration."""
     
@@ -325,8 +443,8 @@ class TestAuthSettings:
         assert settings.is_valid_api_key("anything") is True
 
 
-@pytest.mark.config
-@pytest.mark.unit
+
+
 class TestLoggingSettings:
     """Test logging configuration."""
     
@@ -360,16 +478,8 @@ class TestLoggingSettings:
         assert console_handler is not None
 
 
-@pytest.mark.config
-@pytest.mark.integration
 class TestMasterSettings:
     """Test master Settings class."""
-    
-    @pytest.fixture
-    def valid_env(self):
-        """Provide valid environment variables."""
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
-            yield
     
     def test_settings_initialization(self):
         """Test all sub-settings are initialized."""
@@ -406,8 +516,6 @@ class TestMasterSettings:
             files = settings.get_loaded_env_files()
             
             assert isinstance(files, list)
-            # Should have at least some base files
-            assert len(files) >= 0  # Could be 0 if no env files exist
     
     def test_cache_settings(self):
         """Test cache configuration."""
@@ -427,11 +535,14 @@ class TestMasterSettings:
             # Should pass with valid OpenAI key
             assert settings.validate_configuration() is True
     
-    def test_validate_configuration_missing_api_key(self):
-        """Test validation failure with missing API key."""
-        # Clear any existing API key
-        with patch.dict(os.environ, {}, clear=True):
+    def test_reload_settings(self):
+        """Test settings reload functionality."""
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             settings = Settings()
             
-            # Should fail without OpenAI key
-            assert settings.validate_configuration() is False
+            # Should not raise
+            settings.reload_settings()
+            
+            # Settings should still be valid
+            assert isinstance(settings.environment, EnvironmentSettings)
+
