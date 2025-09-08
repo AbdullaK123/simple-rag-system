@@ -8,6 +8,7 @@ class AuthSettings(BaseSettings):
     """Authentication and authorization settings."""
     
     model_config = SettingsConfigDict(
+        env_file=".env/.auth.env",
         env_prefix="",
         case_sensitive=False,
         env_file_encoding="utf-8",

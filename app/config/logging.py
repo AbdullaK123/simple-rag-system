@@ -9,6 +9,7 @@ class LoggingSettings(BaseSettings):
     """Loguru logging configuration settings."""
     
     model_config = SettingsConfigDict(
+        env_file=".env/.logging.env",
         env_prefix="LOG_",
         case_sensitive=False,
         env_file_encoding="utf-8",

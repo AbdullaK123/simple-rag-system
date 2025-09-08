@@ -8,6 +8,7 @@ class EnvironmentSettings(BaseSettings):
     """Environment and application settings."""
     
     model_config = SettingsConfigDict(
+        env_file=".env/.core.env",
         env_prefix="",
         case_sensitive=False,
         env_file_encoding="utf-8",

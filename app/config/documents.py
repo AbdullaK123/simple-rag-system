@@ -9,6 +9,7 @@ class DocumentSettings(BaseSettings):
     """Document processing and file upload settings."""
     
     model_config = SettingsConfigDict(
+        env_file=".env/.storage.env",
         env_prefix="",
         case_sensitive=False,
         env_file_encoding="utf-8",

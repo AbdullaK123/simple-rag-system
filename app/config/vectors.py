@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,9 +9,9 @@ class VectorSettings(BaseSettings):
     """Vector database configuration settings."""
     
     model_config = SettingsConfigDict(
-        env_prefix="",
-        case_sensitive=False,
+        env_file=".env/.vectors.env",
         env_file_encoding="utf-8",
+        case_sensitive=False,
         extra="ignore"
     )
     
@@ -39,15 +39,17 @@ class VectorSettings(BaseSettings):
     semantic_search_weight: float = Field(default=0.7, ge=0.0, le=1.0, description="Weight for semantic search")
     keyword_search_weight: float = Field(default=0.3, ge=0.0, le=1.0, description="Weight for keyword search")
     
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    @model_validator(mode='after')
+    def validate_search_weights(self):
+        """Validate that search weights are reasonable."""
+        if self.semantic_search_weight + self.keyword_search_weight != 1.0:
+            raise ValueError("Semantic search weight and key word search weight must sum to 1.0")
+        return self
+    
+    def model_post_init(self, __context) -> None:
+        """Post-initialization setup."""
         # Ensure chroma directory exists
         self.chroma_persist_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Validate search weights sum to 1.0
-        total_weight = self.semantic_search_weight + self.keyword_search_weight
-        if abs(total_weight - 1.0) > 0.001:
-            raise ValueError("Semantic and keyword search weights must sum to 1.0")
     
     @property
     def chroma_settings(self) -> dict:
@@ -58,4 +60,16 @@ class VectorSettings(BaseSettings):
             "collection_metadata": {
                 "hnsw:space": self.chroma_distance_metric
             }
+        }
+    
+    @property
+    def search_config(self) -> dict:
+        """Get search configuration summary."""
+        return {
+            "default_results": self.default_search_results,
+            "max_results": self.max_search_results,
+            "similarity_threshold": self.min_similarity_threshold,
+            "semantic_weight": self.semantic_search_weight,
+            "keyword_weight": self.keyword_search_weight,
+            "rerank_enabled": self.rerank_results
         }
