@@ -26,7 +26,8 @@ class DocumentService:
         except Exception as e:
             return AddDocumentResult(
                 success=False,
-                message=f"Failed to add document to store: {str(e)}"
+                message=f"Failed to add document to store: {str(e)}",
+                uuid=None
             )
 
     async def add_documents(self, documents: List[Document]) -> AddDocumentsResult:
@@ -41,7 +42,9 @@ class DocumentService:
         except Exception as e:
             return AddDocumentsResult(
                 success=False,
-                message=f"Failed to add documents to store: {str(e)}"
+                message=f"Failed to add documents to store: {str(e)}",
+                added_count=0,
+                uuids=[]
             )
         
     def update_document(self, document_id: str, updated_document: Document) -> DocumentOperationResult:
@@ -128,7 +131,7 @@ class DocumentService:
                     results=[
                         SearchResult(
                             content=document.page_content,
-                            metadata=document.metadata,
+                            metadata=DocumentMetadata(**document.metadata),
                             relevance_score=score
                         )
                         for document, score 
@@ -138,7 +141,7 @@ class DocumentService:
                     search_time_ms=time.perf_counter()-search_start
                 )
             else:
-                results = await self.store.asimilarity_search(
+                docs = await self.store.asimilarity_search(
                     query=request.query,
                     k=request.k,
                     filter=request.filters
@@ -148,12 +151,12 @@ class DocumentService:
                     results=[
                         SearchResult(
                             content=document.page_content,
-                            meta_data=document.metadata,
+                            metadata=DocumentMetadata(**document.metadata),
                         )
                         for document
-                        in results
+                        in docs
                     ],
-                    total_found=len(results),
+                    total_found=len(docs),
                     search_time_ms=time.perf_counter() - search_start
                 )
         except Exception as e:

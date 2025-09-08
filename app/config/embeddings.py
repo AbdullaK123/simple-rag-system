@@ -46,7 +46,7 @@ class EmbeddingSettings(BaseSettings):
             }
         }
     
-    def get_model_info(self, model_name: Optional[str]) -> Dict[str, Any]:
+    def get_model_info(self, model_name: str = None) -> Dict[str, Any]:
         """Get configuration info for specified model or current model."""
         model = model_name or self.embedding_model
         return self.model_configs.get(model, {})

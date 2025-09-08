@@ -11,3 +11,10 @@ dependencies = [
     "langchain-openai>=0.3.32",
     "sqlmodel>=0.0.24",
 ]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.10.0",
+]
