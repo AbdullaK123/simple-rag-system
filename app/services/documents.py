@@ -31,7 +31,7 @@ class DocumentService:
 
     async def add_documents(self, documents: List[Document]) -> AddDocumentsResult:
         try:
-            result = self.store.aadd_documents(documents)
+            result = await self.store.aadd_documents(documents)
             return AddDocumentsResult(
                 success=True,
                 message=f"Successfully added documents to store",
@@ -39,7 +39,7 @@ class DocumentService:
                 uuids=result
             )
         except Exception as e:
-            return AddDocumentResult(
+            return AddDocumentsResult(
                 success=False,
                 message=f"Failed to add documents to store: {str(e)}"
             )
@@ -70,7 +70,7 @@ class DocumentService:
                 message=f"Failed to delete document: {str(e)}"
             )
         
-    async def delete_documents(self, document_ids: List[str]):
+    async def delete_documents(self, document_ids: List[str]) -> DeleteDocumentResult:
         try:
             await self.store.adelete(document_ids)
             return DeleteDocumentResult(
@@ -79,22 +79,24 @@ class DocumentService:
                 deleted_count=len(document_ids)
             )
         except Exception as e:
-            DeleteDocumentResult(
+            return DeleteDocumentResult(
                 success=False,
                 message=f"Failed to delete documents: {str(e)}"
             )
 
     async def delete_by_source(self, source_file: str) -> DeleteDocumentResult:
         try:
-            results = await self.store.asearch(filter={"source_file": source_file})
-            await self.delete_documents([document.id for document in results])
+            collection_data = self.store.get(where={"source_file": source_file})
+            document_ids = collection_data.get("ids", [])
+            if document_ids:  # Only delete if there are documents to delete
+                await self.delete_documents(document_ids)
             return DeleteDocumentResult(
                 success=True,
-                message=f"Successfully deleted {len(results)} documents with source file: {source_file}",
-                deleted_count=len(results)
+                message=f"Successfully deleted {len(document_ids)} documents with source file: {source_file}",
+                deleted_count=len(document_ids)
             )
         except Exception as e:
-            DeleteDocumentResult(
+            return DeleteDocumentResult(
                 success=False,
                 message=f"Failed to delete documents with source file {source_file}: {str(e)}"
             )
@@ -112,7 +114,7 @@ class DocumentService:
                 message=f"Failed to delete collection: {str(e)}"
             )
 
-    async def similarity_search(self, request: SearchRequest) -> SearchResponse:
+    async def similarity_search(self, request: SearchRequest) -> SearchResponse | DocumentOperationResult:
         try:
             search_start = time.perf_counter()
             if request.include_scores:
@@ -146,9 +148,9 @@ class DocumentService:
                     results=[
                         SearchResult(
                             content=document.page_content,
-                            metadata=document.metadata,
+                            meta_data=document.metadata,
                         )
-                        for document 
+                        for document
                         in results
                     ],
                     total_found=len(results),
@@ -161,14 +163,47 @@ class DocumentService:
             )
 
     def get_document_count(self) -> int:
-        return len(self.store.get())
+        collection_data = self.store.get(include=["metadatas"])
+        return len(collection_data["ids"]) if collection_data.get("ids") else 0
 
     def list_sources(self) -> List[str]:
-        return [
-            metadata.get("file_source")
-            for metadata
-            in self.store.get(include=["metadatas"])
-        ]
+        collection_data = self.store.get(include=["metadatas"])
+        return list(set([
+            metadata.get("source_file", "unknown")
+            for metadata in collection_data.get("metadatas", [])
+            if metadata.get("source_file")
+        ]))
 
     def get_stats(self) -> CollectionStats:
-        pass
+        try:
+            document_count = self.get_document_count()
+
+            sources = self.list_sources()
+
+            # Get collection info
+            collection_name = self.store._collection.name
+            
+            # Get embedding model from the embeddings instance
+            embedding_model = getattr(self.embeddings, 'model', 'unknown')
+            
+            # Chroma typically uses cosine distance as default
+            distance_metric = "cosine"
+            
+            return CollectionStats(
+                collection_name=collection_name,
+                document_count=document_count,
+                sources=sources,
+                distance_metric=distance_metric,
+                embedding_model=embedding_model,
+                created_at=None  # Chroma doesn't store collection creation time by default
+            )
+        except Exception as e:
+            # Return empty stats in case of error
+            return CollectionStats(
+                collection_name=getattr(self.store._collection, 'name', 'unknown'),
+                document_count=0,
+                sources=[],
+                distance_metric="cosine",
+                embedding_model=getattr(self.embeddings, 'model', 'unknown'),
+                created_at=None
+            )

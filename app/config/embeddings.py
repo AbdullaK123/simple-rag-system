@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Any, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,7 +26,7 @@ class EmbeddingSettings(BaseSettings):
     embedding_timeout: int = Field(default=30, description="Request timeout in seconds")
     
     @property
-    def model_configs(self) -> Dict[str, Dict[str, any]]:
+    def model_configs(self) -> Dict[str, Dict[str, Any]]:
         """Available embedding model configurations."""
         return {
             "text-embedding-3-small": {
@@ -46,7 +46,7 @@ class EmbeddingSettings(BaseSettings):
             }
         }
     
-    def get_model_info(self, model_name: str = None) -> Dict[str, any]:
+    def get_model_info(self, model_name: Optional[str]) -> Dict[str, Any]:
         """Get configuration info for specified model or current model."""
         model = model_name or self.embedding_model
         return self.model_configs.get(model, {})
