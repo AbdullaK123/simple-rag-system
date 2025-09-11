@@ -84,7 +84,8 @@ class DocumentService:
         except Exception as e:
             return DeleteDocumentResult(
                 success=False,
-                message=f"Failed to delete documents: {str(e)}"
+                message=f"Failed to delete documents: {str(e)}",
+                deleted_count=0
             )
 
     async def delete_by_source(self, source_file: str) -> DeleteDocumentResult:
@@ -101,7 +102,8 @@ class DocumentService:
         except Exception as e:
             return DeleteDocumentResult(
                 success=False,
-                message=f"Failed to delete documents with source file {source_file}: {str(e)}"
+                message=f"Failed to delete documents with source file {source_file}: {str(e)}",
+                deleted_count=0
             )
 
     def clear_collection(self) -> DocumentOperationResult:
@@ -131,7 +133,15 @@ class DocumentService:
                     results=[
                         SearchResult(
                             content=document.page_content,
-                            metadata=DocumentMetadata(**document.metadata),
+                            doc_metadata=DocumentMetadata(
+                                uuid=document.metadata.get('uuid', ''),
+                                source_file=document.metadata.get('source_file'),
+                                filename=document.metadata.get('filename'),
+                                chunk_index=document.metadata.get('chunk_index'),
+                                chunk_size=document.metadata.get('chunk_size'),
+                                added_at=document.metadata.get('added_at'),
+                                content_type=document.metadata.get('content_type')
+                            ),
                             relevance_score=score
                         )
                         for document, score 
@@ -151,7 +161,15 @@ class DocumentService:
                     results=[
                         SearchResult(
                             content=document.page_content,
-                            metadata=DocumentMetadata(**document.metadata),
+                            doc_metadata=DocumentMetadata(
+                                uuid=document.metadata.get('uuid', ''),
+                                source_file=document.metadata.get('source_file'),
+                                filename=document.metadata.get('filename'),
+                                chunk_index=document.metadata.get('chunk_index'),
+                                chunk_size=document.metadata.get('chunk_size'),
+                                added_at=document.metadata.get('added_at'),
+                                content_type=document.metadata.get('content_type')
+                            ),
                         )
                         for document
                         in docs

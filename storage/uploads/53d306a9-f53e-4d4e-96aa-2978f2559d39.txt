@@ -1,0 +1,10 @@
+
+    This is a comprehensive test document for the RAG system.
+    It contains multiple paragraphs and should be split into chunks.
+    
+    The document processing pipeline should handle this correctly,
+    splitting it based on the configured chunk size and overlap.
+    
+    This allows us to test the complete flow from file upload
+    through document preprocessing and chunking.
+    

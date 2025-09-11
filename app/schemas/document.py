@@ -19,7 +19,7 @@ class DeleteDocumentResult(DocumentOperationResult):
 class DocumentMetadata(SQLModel):
     uuid: str
     source_file: Optional[str] = None
-    file_name: Optional[str] = None
+    filename: Optional[str] = None
     chunk_index: Optional[int] = None
     chunk_size: Optional[int] = None 
     added_at: Optional[datetime] = None 
@@ -27,11 +27,11 @@ class DocumentMetadata(SQLModel):
 
 class DocumentChunk(SQLModel):
     content: str
-    metadata: DocumentMetadata
+    doc_metadata: DocumentMetadata
 
 class SearchResult(SQLModel):
     content: str 
-    metadata: DocumentMetadata
+    doc_metadata: DocumentMetadata
     relevance_score: Optional[float] = None
 
 class CollectionStats(SQLModel):
