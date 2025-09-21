@@ -40,7 +40,7 @@ class DocumentSettings(BaseSettings):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Ensure upload directory exists
-        self.upload_dir.mkdir(parents=True, exist_ok=True)
+        Path(self.upload_dir).mkdir(parents=True, exist_ok=True)
     
     @property
     def allowed_extensions_set(self) -> set:

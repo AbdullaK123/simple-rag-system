@@ -1,15 +1,16 @@
-from fastapi import UploadFile, File, Depends, HTTPException, status
+from fastapi import UploadFile, File, Depends, HTTPException, status, Query
 from app.dependencies.config import get_settings
 from app.config import Settings
-from app.schemas.document import DocumentMetadata
+from app.schemas.document import DocumentMetadata, SearchRequest
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Dict, Any, Union
 from app.schemas.upload import UploadResult
 import uuid
 from datetime import datetime
 from pathlib import Path
+from datetime import datetime
 from app.services.documents import DocumentService
 
 def get_document_service(
@@ -106,4 +107,41 @@ async def preprocess_uploaded_file(
         for i, chunk 
         in enumerate(chunks)
     ]
+
+async def assemble_search_request(
+    query: str = Query(min_length=1),
+    k: Optional[int] = Query(default=5, ge=1, le=50),
+    source_file: Optional[str] = Query(default=None),
+    added_before: Optional[datetime] = Query(default=None),
+    added_after: Optional[datetime] = Query(default=None),
+    return_scores: bool = Query(default=True)
+) -> SearchRequest:
+    # Build filters dynamically based on provided parameters
+    filter_conditions: List[Dict[str, Any]] = []
+    
+    # Add source file filter if provided
+    if source_file is not None and source_file.strip():
+        filter_conditions.append({"source_file": {"$eq": source_file}})
+    
+    # Add date range filters if provided
+    if added_after is not None:
+        filter_conditions.append({"added_at": {"$gte": added_after.isoformat()}})
+    
+    if added_before is not None:
+        filter_conditions.append({"added_at": {"$lte": added_before.isoformat()}})
+    
+    # Build final filters object
+    filters = None
+    if filter_conditions:
+        if len(filter_conditions) > 1:
+            filters = {"$and": filter_conditions}
+        elif len(filter_conditions) == 1:
+            filters = filter_conditions[0]
+    
+    return SearchRequest(
+        query=query,
+        k=k or 5,
+        filters=filters,
+        include_scores=return_scores
+    )
 
