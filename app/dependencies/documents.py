@@ -9,6 +9,17 @@ from typing import List
 from app.schemas.upload import UploadResult
 import uuid
 from datetime import datetime
+from pathlib import Path
+from app.services.documents import DocumentService
+
+def get_document_service(
+    settings: Settings = Depends(get_settings)
+) -> DocumentService:
+    return DocumentService(
+        collection_name=settings.vectors.chroma_collection_name,
+        embedding_model=settings.embeddings.embedding_model,
+        persist_directory=settings.documents.upload_dir
+    )
 
 async def validate_file(
     settings: Settings = Depends(get_settings),
@@ -42,7 +53,7 @@ async def validate_file(
     # make file name uuid to ensure uploads are unique
     stored_filename = f"{uuid.uuid4()}{file_ext}"
     try: 
-        with open(settings.documents.upload_dir / stored_filename, "wb") as buffer:
+        with open( Path(settings.documents.upload_dir) / stored_filename, "wb") as buffer:
             buffer.write(content)
     except Exception as e:
         raise HTTPException(

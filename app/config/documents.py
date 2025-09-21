@@ -22,7 +22,7 @@ class DocumentSettings(BaseSettings):
         default=[".pdf", ".txt", ".docx", ".md"],
         description="Allowed file extensions"
     )
-    upload_dir: Path = Field(default=Path("./storage/uploads"), description="Upload directory path")
+    upload_dir: str = Field(default=str(Path("./storage/uploads")), description="Upload directory path")
     max_files_per_upload: int = Field(default=10, description="Maximum files per upload request")
     
     # Text Chunking Settings

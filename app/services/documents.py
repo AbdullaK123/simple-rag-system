@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Tuple
+from typing import Dict, List
 from langchain_core.documents import Document
 from langchain_community.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings
@@ -14,6 +14,10 @@ class DocumentService:
             embedding_function=self.embeddings,
             persist_directory=persist_directory
         )
+
+    def get_embeddings(self, ids: List[str]) -> List[List[float]]:
+        result = self.store._collection.get(ids=ids, include=['embeddings'])
+        return result['embeddings']
 
     async def add_document(self, content: str, metadata: DocumentMetadata) -> AddDocumentResult:
         try: 

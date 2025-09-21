@@ -47,7 +47,7 @@ class SearchRequest(SQLModel):
     query: str
     k: int = Field(default=5, ge=1, le=50)
     filters: Optional[dict] = None
-    include_scores: bool = False
+    include_scores: bool = True
 
 
 class SearchResponse(SQLModel):
