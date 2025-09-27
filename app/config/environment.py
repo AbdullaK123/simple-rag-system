@@ -1,6 +1,6 @@
 from typing import List, Literal, Union
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +22,10 @@ class EnvironmentSettings(BaseSettings):
     # API Server
     api_host: str = Field(default="0.0.0.0", description="API host address")
     api_port: int = Field(default=8000, ge=1, le=65535, description="API port")
+
+    # Database
+    db_url: str = Field(default="", description="Main db url")
+    migrations_url: str = Field(default="", description="Url for db migrations")
     
     # Security
     api_key_required: bool = Field(default=False, description="Require API key for requests")
@@ -43,6 +47,12 @@ class EnvironmentSettings(BaseSettings):
     run_startup_tests: bool = Field(default=False, description="Run tests on startup")
     mock_external_apis: bool = Field(default=False, description="Mock external API calls")
     test_data_dir: str = Field(default="./tests/data", description="Test data directory")
+
+    @model_validator(mode='after')
+    def check_db_urls(self):
+        if self.db_url == "" or self.migrations_url == "":
+            raise ValueError("Invalid db connection strings! Check your environment settings!")
+        return self
     
     @field_validator('allowed_origins', mode='before')
     @classmethod

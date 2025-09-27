@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,7 +16,7 @@ class LLMSettings(BaseSettings):
     )
     
     # OpenAI Configuration
-    openai_api_key: SecretStr = Field(description="OpenAI API key")
+    openai_api_key: SecretStr = Field(default="", description="OpenAI API key")
     openai_org_id: Optional[str] = Field(default=None, description="OpenAI organization ID")
     
     # Model Selection
@@ -56,7 +56,7 @@ class LLMSettings(BaseSettings):
             "legacy": "gpt-3.5-turbo-instruct"
         }
     
-    def get_chat_params(self) -> Dict[str, any]:
+    def get_chat_params(self) -> Dict[str, Any]:
         """Get chat completion parameters as a dictionary."""
         return {
             "model": self.chat_model,
