@@ -18,6 +18,7 @@ class DeleteDocumentResult(DocumentOperationResult):
 
 class DocumentMetadata(SQLModel):
     uuid: str
+    owner_id: str
     source_file: Optional[str] = None
     filename: Optional[str] = None
     chunk_index: Optional[int] = None

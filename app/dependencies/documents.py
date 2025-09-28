@@ -1,6 +1,9 @@
 from fastapi import UploadFile, File, Depends, HTTPException, status, Query
+
+from app.dependencies.auth import get_current_user
 from app.dependencies.config import get_settings
 from app.config import Settings
+from app.schemas.auth import UserResponse
 from app.schemas.document import DocumentMetadata, SearchRequest
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -26,6 +29,7 @@ def get_document_service(
 
 async def validate_file(
     settings: Settings = Depends(get_settings),
+    current_user: UserResponse = Depends(get_current_user),
     file: UploadFile = File(...)
 ) -> UploadResult:
     
@@ -75,6 +79,7 @@ async def validate_file(
 
     return UploadResult(
         filename=stored_filename,
+        owner_id=current_user.id,
         source_file=file.filename,
         content_type=file.content_type or "text/plain",
         content=decoded_content
@@ -98,6 +103,7 @@ async def preprocess_uploaded_file(
             page_content=chunk,
             metadata=DocumentMetadata(
                 uuid=str(uuid.uuid4()),
+                owner_id=upload.owner_id,
                 source_file=upload.source_file,
                 filename=upload.filename,
                 chunk_size=len(chunk),
@@ -116,10 +122,13 @@ async def assemble_search_request(
     source_file: Optional[str] = Query(default=None),
     added_before: Optional[datetime] = Query(default=None),
     added_after: Optional[datetime] = Query(default=None),
-    return_scores: bool = Query(default=True)
+    return_scores: bool = Query(default=True),
+    current_user: UserResponse = Depends(get_current_user)
 ) -> SearchRequest:
     # Build filters dynamically based on provided parameters
-    filter_conditions: List[Dict[str, Any]] = []
+    filter_conditions: List[Dict[str, Any]] = [
+        {"owner_id": {"$eq": current_user.id}} # always filter by current user
+    ]
     
     # Add source file filter if provided
     if source_file is not None and source_file.strip():
@@ -134,11 +143,10 @@ async def assemble_search_request(
     
     # Build final filters object
     filters = None
-    if filter_conditions:
-        if len(filter_conditions) > 1:
-            filters = {"$and": filter_conditions}
-        elif len(filter_conditions) == 1:
-            filters = filter_conditions[0]
+    if len(filter_conditions) > 1:
+        filters = {"$and": filter_conditions}
+    elif len(filter_conditions) == 1:
+        filters = filter_conditions[0]
     
     return SearchRequest(
         query=query,
