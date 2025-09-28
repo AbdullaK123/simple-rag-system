@@ -1,4 +1,7 @@
 from fastapi import Depends, APIRouter, Query
+
+from app.dependencies.auth import get_current_user
+from app.schemas.auth import UserResponse
 from app.services.document import DocumentService
 from app.dependencies.documents import preprocess_uploaded_file, get_document_service, assemble_search_request
 from langchain_core.documents import Document
@@ -26,6 +29,7 @@ async def add_document(
 @document_controller.delete('/', response_model=DocumentOperationResult)
 async def deleted_document_by_source(
     source_file: str = Query(),
+    current_user: UserResponse = Depends(get_current_user),
     service: DocumentService = Depends(get_document_service),
 ) -> DocumentOperationResult:
     logger.debug("API delete by source called", extra={"source_file": source_file})

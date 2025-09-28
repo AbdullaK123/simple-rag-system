@@ -113,10 +113,10 @@ class DocumentService:
                 deleted_count=0
             )
 
-    async def delete_by_source(self, source_file: str) -> DeleteDocumentResult:
+    async def delete_by_source(self, source_file: str, owner_id: str) -> DeleteDocumentResult:
         logger.debug("Deleting by source", extra={"source_file": source_file})
         try:
-            collection_data = self.store.get(where={"source_file": source_file})
+            collection_data = self.store.get(where={"source_file": source_file, "owner_id": owner_id})
             document_ids = collection_data.get("ids", [])
             logger.debug("Found documents to delete", extra={"count": len(document_ids)})
             if document_ids:  # Only delete if there are documents to delete
