@@ -15,6 +15,8 @@ async def get_current_user(
 ) -> UserResponse:
     logger.debug("Resolving current user from token", extra={"token_prefix": token[:8] + "..." if token else None})
     try:
+        if await service.token_service.is_token_blacklisted(token):
+            raise HTTPException(401, "Token has been revoked")
         payload = decode_jwt(token)
         sub = payload['sub'] if isinstance(payload, dict) else getattr(payload, 'sub', None)
         user = await service.get_by_id(sub)

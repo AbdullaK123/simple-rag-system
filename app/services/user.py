@@ -8,13 +8,14 @@ from fastapi import HTTPException, status, Depends
 from app.utils.auth import verify_password, hash_password, create_jwt, create_refresh_token
 from app.config.logging import logger
 from app.utils.errors import handle_unchecked_errors
-from app.dependencies.database import get_db
+from app.services.token import TokenService
 
 
 class UserService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.token_service = TokenService(db)
 
     @handle_unchecked_errors
     async def get_by_id(self, user_id: str) -> Optional[UserResponse]:
@@ -88,7 +89,12 @@ class UserService:
         claims = JWTClaims.new(user.id)
         access_token = create_jwt(claims)
         refresh_token = create_refresh_token()
+        await self.token_service.create_refresh_token(refresh_token)
         return Token(access_token=access_token, refresh_token=refresh_token)
+
+    @handle_unchecked_errors
+    async def logout_user(self, access_token: str, user_id: str):
+        await self.token_service.blacklist_token(access_token, user_id)
 
 
 
