@@ -52,6 +52,9 @@ class UserCredentials(SQLModel):
     email: str
     password: str
 
+class RefreshRequest(SQLModel):
+    token: str
+
 class UserCreate(SQLModel):
     username: str
     email: EmailStr
