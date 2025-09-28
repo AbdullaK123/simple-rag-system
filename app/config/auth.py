@@ -8,7 +8,7 @@ class AuthSettings(BaseSettings):
     """Authentication and authorization settings."""
     
     model_config = SettingsConfigDict(
-        env_file=".env/.auth.env",
+        env_file=".env/.security.env",
         env_prefix="",
         case_sensitive=False,
         env_file_encoding="utf-8",
@@ -21,10 +21,12 @@ class AuthSettings(BaseSettings):
     api_key_header: str = Field(default="X-API-Key", description="API key header name")
     
     # JWT Configuration
-    jwt_secret_key: SecretStr = Field(default="your_jwt_secret_here", description="JWT secret key")
+    jwt_secret_key: SecretStr = Field(description="JWT secret key")
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
     jwt_expiration_hours: int = Field(default=24, description="JWT token expiration in hours")
     jwt_refresh_expiration_days: int = Field(default=7, description="Refresh token expiration in days")
+
+    hash_secret_key: SecretStr = Field(description="For password hashing")
     
     # Session Configuration
     session_timeout_minutes: int = Field(default=30, description="Session timeout in minutes")

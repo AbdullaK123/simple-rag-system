@@ -9,7 +9,10 @@ dependencies = [
     "langchain>=0.3.27",
     "langchain-community>=0.3.29",
     "langchain-openai>=0.3.32",
+    "passlib>=1.7.4",
+    "pyjwt>=2.10.1",
     "sqlmodel>=0.0.24",
+    "loguru>=0.7.2",
 ]
 
 [project.optional-dependencies]
@@ -27,3 +30,5 @@ ignore_errors = true
 # ignore_missing_imports = true
 # warn_return_any = false
 # warn_unused_configs = false
+[tool.setuptools.packages.find]
+include = ["app*"]

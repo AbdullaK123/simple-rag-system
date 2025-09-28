@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 from typing import List
 
-from app.services.documents import DocumentService
+from app.services.document import DocumentService
 from app.schemas.document import (
     DocumentMetadata, 
     AddDocumentResult, 

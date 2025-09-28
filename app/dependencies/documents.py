@@ -11,11 +11,13 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from datetime import datetime
-from app.services.documents import DocumentService
+from app.services.document import DocumentService
+from app.config.logging import logger
 
 def get_document_service(
     settings: Settings = Depends(get_settings)
 ) -> DocumentService:
+    logger.debug("Creating DocumentService via dependency", extra={"collection_name": settings.vectors.chroma_collection_name})
     return DocumentService(
         collection_name=settings.vectors.chroma_collection_name,
         embedding_model=settings.embeddings.embedding_model,

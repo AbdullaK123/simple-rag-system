@@ -1,8 +1,11 @@
 from pathlib import Path
 from typing import Literal, Optional
+import logging
+import sys
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from loguru import logger
 
 
 class LoggingSettings(BaseSettings):
@@ -96,7 +99,7 @@ class LoggingSettings(BaseSettings):
         # Console handler
         if self.console_enabled:
             handlers.append({
-                "sink": "sys.stdout",
+                "sink": sys.stdout,
                 "format": self.console_format,
                 "level": self.level,
                 "colorize": self.console_colorize,
@@ -141,3 +144,45 @@ class LoggingSettings(BaseSettings):
             })
         
         return handlers
+
+
+class InterceptHandler(logging.Handler):
+    """Redirect standard logging records to Loguru."""
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            level = logger.level(record.levelname).name
+        except Exception:
+            level = record.levelno
+        frame, depth = logging.currentframe(), 2
+        while frame and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
+        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+
+
+def setup_logging(settings: Optional[LoggingSettings] = None) -> None:
+    """Configure Loguru logging based on settings. Safe to call multiple times."""
+    cfg = settings or LoggingSettings()
+
+    # Remove default handlers
+    logger.remove()
+
+    # Add handlers per settings
+    for handler in cfg.get_loguru_config():
+        logger.add(**handler)
+
+    # Intercept std logging
+    logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
+    for name in (
+        "uvicorn",
+        "uvicorn.error",
+        "uvicorn.access",
+        "fastapi",
+        "sqlalchemy",
+    ):
+        logging.getLogger(name).handlers = [InterceptHandler()]
+        logging.getLogger(name).propagate = False
+
+
+# Auto-configure on import with defaults
+setup_logging()
