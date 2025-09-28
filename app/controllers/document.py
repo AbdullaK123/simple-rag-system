@@ -33,7 +33,7 @@ async def deleted_document_by_source(
     service: DocumentService = Depends(get_document_service),
 ) -> DocumentOperationResult:
     logger.debug("API delete by source called", extra={"source_file": source_file})
-    result = await service.delete_by_source(source_file)
+    result = await service.delete_by_source(source_file, current_user.id)
     logger.info("API delete by source completed", extra={"success": result.success, "deleted_count": getattr(result, 'deleted_count', None)})
     return result
 
